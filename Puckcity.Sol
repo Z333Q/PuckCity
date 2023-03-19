@@ -1,0 +1,149 @@
+pragma solidity ^0.8.19;
+
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "@polygon-hermez/contracts/polygon/Matic.sol";
+
+contract PuckCity is ERC1155, Ownable {
+    using SafeMath for uint256;
+
+    struct Team {
+        string abbreviation;
+        address token;
+        uint256 totalTokens;
+        uint256 totalWins;
+        uint256 totalGames;
+    }
+
+    mapping(uint256 => Team) public teams;
+    mapping(string => uint256) public teamIds;
+
+    AggregatorV3Interface internal sportsDataAPI;
+    Matic internal polygon;
+
+    uint256 private constant MAX_TEAMS = 32;
+    uint256 private constant TOKENS_PER_TEAM = 1000;
+    uint256 private constant TOTAL_TOKENS = MAX_TEAMS * TOKENS_PER_TEAM;
+
+    uint256 public totalGamesPlayed;
+    uint256 public adminFeePercentage = 50; // 0.5%
+
+    event GameOutcomeUpdated(uint256 indexed gameId, uint256 indexed winningTeamId, uint256 indexed losingTeamId);
+    event TreasuryUpdated(uint256 indexed teamId, uint256 newTreasury);
+
+    constructor(address _sportsDataAPI, address _polygon)
+        ERC1155("https://puckcity.example/api/token/{id}.json")
+    {
+        sportsDataAPI = AggregatorV3Interface(_sportsDataAPI);
+        polygon = Matic(_polygon);
+
+        _initializeTeams();
+    }
+
+    function _initializeTeams() private {
+        string[32] memory abbreviations = [
+            "ANA", "ARI", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL", "DET", "EDM", "FLA", "LAK", "MIN", "MTL",
+            "NSH", "NJD", "NYI", "NYR", "OTT", "PHI", "PIT", "SJS", "SEA", "STL", "TBL", "TOR", "VAN", "VGK", "WPG", "WSH"
+        ];
+
+        for (uint256 i = 0; i < MAX_TEAMS; i++) {
+            ERC20 token = new ERC20(abbreviations[i], abbreviations[i]);
+            teams[i] = Team(abbreviations[i], address(token), TOKENS_PER_TEAM, 0, 0);
+            teamIds[abbreviations[i]] = i;
+            _mint(msg.sender, i, TOKENS_PER_TEAM, "");
+        }
+    }
+
+    function updateGameOutcome(uint256 gameId) external onlyOwner {
+        (uint256 winningTeamId, uint256 losingTeamId) = _getWinningAndLosingTeamIds(gameId);
+        require(teams[winningTeamId].totalGames < 82 && teams[losingTeamId].totalGames < 82, "Max games reached");
+
+        uint256 amountToRedistribute = getTotalTreasury().mul(adminFeePercentage).div(10000);
+        uint256 adminFee = amountToRedistribute.mul(adminFeePercentage).div(10000);
+
+        // Update treasuries
+        _updateTeamTreasury(winningTeamId, amountToRedistribute.sub(adminFee));
+        _updateTeamTreasury(losingTeamId, adminFee);
+
+        // Update team game counts
+        teams[winningTeamId].totalGames++;
+        teams[losingTeamId].totalGames++;
+    // Update team win count
+    teams[winningTeamId].totalWins++;
+
+    // Update total games played
+    totalGamesPlayed++;
+
+    emit GameOutcomeUpdated(gameId, winningTeamId, losingTeamId);
+}
+
+function _getWinningAndLosingTeamIds(uint256 gameId) private view returns (uint256 winningTeamId, uint256 losingTeamId) {
+    (, int256 winningId, , , ) = sportsDataAPI.getGameData(gameId);
+    (, int256 losingId, , , ) = sportsDataAPI.getGameData(gameId + 1);
+    return (uint256(winningId), uint256(losingId));
+}
+
+function getTotalTreasury() public view returns (uint256) {
+    uint256 totalTreasury = 0;
+    for (uint256 i = 0; i < MAX_TEAMS; i++) {
+        totalTreasury = totalTreasury.add(ERC20(teams[i].token).balanceOf(address(this)));
+    }
+    return totalTreasury;
+}
+
+function _updateTeamTreasury(uint256 teamId, uint256 amount) private {
+    ERC20(teams[teamId].token).mint(address(this), amount);
+    emit TreasuryUpdated(teamId, ERC20(teams[teamId].token).balanceOf(address(this)));
+}
+
+function withdrawTeamTokens(uint256 teamId, uint256 tokenId, uint256 amount) external {
+    require(balanceOf(msg.sender, tokenId) >= amount, "Insufficient balance");
+    _burn(msg.sender, tokenId, amount);
+
+    uint256 tokenValue = ERC20(teams[teamId].token).balanceOf(address(this)).div(teams[teamId].totalTokens);
+    uint256 tokensToTransfer = tokenValue.mul(amount);
+
+    teams[teamId].totalTokens = teams[teamId].totalTokens.sub(amount);
+    ERC20(teams[teamId].token).transfer(msg.sender, tokensToTransfer);
+}
+
+function setAdminFeePercentage(uint256 newPercentage) external onlyOwner {
+    require(newPercentage <= 10000, "Invalid percentage");
+    adminFeePercentage = newPercentage;
+}
+}
+    function setSportsDataAPI(address newSportsDataAPI) external onlyOwner {
+        sportsDataAPI = AggregatorV3Interface(newSportsDataAPI);
+    }
+
+    function setPolygon(address newPolygon) external onlyOwner {
+        polygon = Matic(newPolygon);
+    }
+
+    function bridgeToPolygon(uint256 tokenId, uint256 amount) external {
+        require(balanceOf(msg.sender, tokenId) >= amount, "Insufficient balance");
+        _burn(msg.sender, tokenId, amount);
+
+        uint256 tokenValue = ERC20(teams[tokenId].token).balanceOf(address(this)).div(teams[tokenId].totalTokens);
+        uint256 tokensToTransfer = tokenValue.mul(amount);
+
+        teams[tokenId].totalTokens = teams[tokenId].totalTokens.sub(amount);
+        ERC20(teams[tokenId].token).approve(address(polygon), tokensToTransfer);
+        polygon.depositERC20ForUser(ERC20(teams[tokenId].token), msg.sender, tokensToTransfer);
+    }
+
+    function bridgeFromPolygon(uint256 tokenId, uint256 amount) external {
+        ERC20 teamToken = ERC20(teams[tokenId].token);
+        uint256 tokenValue = teamToken.balanceOf(address(this)).div(teams[tokenId].totalTokens);
+        uint256 tokensToTransfer = tokenValue.mul(amount);
+
+        require(teamToken.balanceOf(msg.sender) >= tokensToTransfer, "Insufficient balance");
+
+        teamToken.transferFrom(msg.sender, address(this), tokensToTransfer);
+        teams[tokenId].totalTokens = teams[tokenId].totalTokens.add(amount);
+        _mint(msg.sender, tokenId, amount, "");
+    }
+}
+
