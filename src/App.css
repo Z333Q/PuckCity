@@ -1,4 +1,6 @@
-// src/App.css
+
+`src/App.css`:
+```css
 body {
   font-family: Arial, sans-serif;
 }
@@ -38,7 +40,11 @@ body {
 }
 
 @media (max-width: 767px) {
-  .teams-container {
+  .app.mobile {
+    font-size: 14px;
+  }
+
+  .teams-container.mobile {
     flex-direction: column;
   }
 }
