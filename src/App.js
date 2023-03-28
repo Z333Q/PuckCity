@@ -1,57 +1,61 @@
-// PuckCityV6 contract address
 const CONTRACT_ADDRESS = "<your-contract-address>";
-
+const PUCK_TOKEN_ADDRESS = "<your-puck-token-address>";
 // Team tokens
 const CITY_TOKENS = [
-  { name: "Anaheim", image: "anaheim.png" },
-  { name: "Arizona", image: "arizona.png" },
-  { name: "Boston", image: "boston.png" },
-  { name: "Buffalo", image: "buffalo.png" },
-  { name: "Calgary", image: "calgary.png" },
-  { name: "Carolina", image: "carolina.png" },
-  { name: "Chicago", image: "chicago.png" },
-  { name: "Colorado", image: "colorado.png" },
-  { name: "Columbus", image: "columbus.png" },
-  { name: "Dallas", image: "dallas.png" },
-  { name: "Detroit", image: "detroit.png" },
-  { name: "Edmonton", image: "edmonton.png" },
-  { name: "Florida", image: "florida.png" },
-  { name: "Los Angeles", image: "los-angeles.png" },
-  { name: "Minnesota", image: "minnesota.png" },
-  { name: "Montreal", image: "montreal.png" },
-  { name: "Nashville", image: "nashville.png" },
-  { name: "New Jersey", image: "new-jersey.png" },
-  { name: "New York Islanders", image: "new-york-islanders.png" },
-  { name: "New York Rangers", image: "new-york-rangers.png" },
-  { name: "Ottawa", image: "ottawa.png" },
-  { name: "Philadelphia", image: "philadelphia.png" },
-  { name: "Pittsburgh", image: "pittsburgh.png" },
-  { name: "San Jose", image: "san-jose.png" },
-  { name: "St. Louis", image: "st-louis.png" },
-  { name: "Tampa Bay", image: "tampa-bay.png" },
-  { name: "Toronto", image: "toronto.png" },
-  { name: "Vancouver", image: "vancouver.png" },
-  { name: "Vegas", image: "vegas.png" },
-  { name: "Washington", image: "washington.png" },
-  { name: "Winnipeg", image: "winnipeg.png" },
+{ name: "Anaheim", image: "anaheim.png" },
+{ name: "Arizona", image: "arizona.png" },
+{ name: "Boston", image: "boston.png" },
+{ name: "Buffalo", image: "buffalo.png" },
+{ name: "Calgary", image: "calgary.png" },
+{ name: "Carolina", image: "carolina.png" },
+{ name: "Chicago", image: "chicago.png" },
+{ name: "Colorado", image: "colorado.png" },
+{ name: "Columbus", image: "columbus.png" },
+{ name: "Dallas", image: "dallas.png" },
+{ name: "Detroit", image: "detroit.png" },
+{ name: "Edmonton", image: "edmonton.png" },
+{ name: "Florida", image: "florida.png" },
+{ name: "Los Angeles", image: "los-angeles.png" },
+{ name: "Minnesota", image: "minnesota.png" },
+{ name: "Montreal", image: "montreal.png" },
+{ name: "Nashville", image: "nashville.png" },
+{ name: "New Jersey", image: "new-jersey.png" },
+{ name: "New York Islanders", image: "new-york-islanders.png" },
+{ name: "New York Rangers", image: "new-york-rangers.png" },
+{ name: "Ottawa", image: "ottawa.png" },
+{ name: "Philadelphia", image: "philadelphia.png" },
+{ name: "Pittsburgh", image: "pittsburgh.png" },
+{ name: "San Jose", image: "san-jose.png" },
+{ name: "St. Louis", image: "st-louis.png" },
+{ name: "Tampa Bay", image: "tampa-bay.png" },
+{ name: "Toronto", image: "toronto.png" },
+{ name: "Vancouver", image: "vancouver.png" },
+{ name: "Vegas", image: "vegas.png" },
+{ name: "Washington", image: "washington.png" },
+{ name: "Winnipeg", image: "winnipeg.png" },
 ];
 
-// Load Web3
-let web3;
-
-if (window.ethereum) {
-  web3 = new Web3(window.ethereum);
-} else if (window.web3) {
-  web3 = new Web3(window.web3.currentProvider);
-} else {
-  console.error("No Web3 provider detected");
-}
+// Load web3
+const loadWeb3 = async () => {
+  if (window.ethereum) {
+    window.web3 = new Web3(window.ethereum);
+    await window.ethereum.enable();
+  } else if (window.web3) {
+    window.web3 = new Web3(window.web3.currentProvider);
+  } else {
+    window.alert("Non-Ethereum browser detected. You should consider trying MetaMask!");
+  }
+};
 
 // Load contract
 async function loadContract() {
-  const response = await fetch(`assets/PuckCityV6.json`);
+  const response = await fetch(assets/PuckCityV6.json);
   const data = await response.json();
   const networkId = await web3.eth.net.getId();
+  const baseURI = "https://example.com/token/";
+  const tokenAddress = "<your-token-address>";
+  const treasuryAddress = "<your-treasury-address>";
+  const aggregatorAddress = "<your-aggregator-address>";
   const contract = new web3.eth.Contract(data.abi, CONTRACT_ADDRESS);
   return contract;
 }
@@ -62,198 +66,131 @@ async function loadAccount() {
   return accounts[0];
 }
 
-// Get city token ID
-async function getCityTokenId(cityName) {
-  const response = await fetch(`assets/cities.json`);
-  const data = await response.json();
-  const city = data.cities.find((city) => city.name === cityName);
-  return city ? city.id : null;
-}
-
-// Display city token balances
-async function displayCityTokenBalances() {
+// Refresh data
+async function refreshData() {
   const contract = await loadContract();
   const account = await loadAccount();
-  const cityTokenBalances = await Promise.all(
-    CITIES.map(async (city) => {
-      const balance = await contract.methods.balanceOf(account, await getCityTokenId(city)).call();
-      return { name: city, image: `${city.toLowerCase()}.png`, balance: balance };
-    })
-  );
-  const totalStaked = await contract.methods.totalStaked().call();
-  const stakedBalances = await Promise.all(
-    CITIES.map(async (city) => {
-      const stakedBalance = await contract.methods.getUserStakedBalance(account, city).call();
-      const percentage = totalStaked == 0 ? 0 : stakedBalance * 100 / totalStaked;
-      return { name: city, image: `${city.toLowerCase()}.png`, balance: stakedBalance, percentage: percentage };
-    })
-  );
+  
+  // Get city token balances
+  const cityTokenBalance = await contract.methods.balanceOf(CITY_TOKEN_ADDRESS, account).call();
+  const cityToken = await fetch(baseURI + CITY_TOKEN_ADDRESS);
+  const cityTokenData = await cityToken.json();
+  const cityTokenSymbol = cityTokenData.symbol;
+  const cityTokenDecimals = cityTokenData.decimals;
+  const cityTokenBalanceFormatted = web3.utils.fromWei(cityTokenBalance, "ether");
+  
+  // Get puck token balances
+  const puckTokenBalance = await contract.methods.balanceOf(PUCK_TOKEN_ADDRESS, account).call();
+  const puckToken = await fetch(baseURI + PUCK_TOKEN_ADDRESS);
+  const puckTokenData = await puckToken.json();
+  const puckTokenSymbol = puckTokenData.symbol;
+  const puckTokenDecimals = puckTokenData.decimals;
+  const puckTokenBalanceFormatted = web3.utils.fromWei(puckTokenBalance, "ether");
+  
+  // Get staked balances
+  const stakedBalances = [];
+  const stakedCityTokenBalance = await contract.methods.stakedBalance(CITY_TOKEN_ADDRESS, account).call();
+  if (stakedCityTokenBalance > 0) {
+    stakedBalances.push({
+      name: cityTokenData.name,
+      symbol: cityTokenData.symbol,
+      image: "https://example.com/city-token.png",
+      balance: web3.utils.fromWei(stakedCityTokenBalance, "ether"),
+      address: CITY_TOKEN_ADDRESS
+    });
+  }
+  const stakedPuckTokenBalance = await contract.methods.stakedBalance(PUCK_TOKEN_ADDRESS, account).call();
+  if (stakedPuckTokenBalance > 0) {
+    stakedBalances.push({
+      name: puckTokenData.name,
+      symbol: puckTokenData.symbol,
+      image: "https://example.com/puck-token.png",
+      balance: web3.utils.fromWei(stakedPuckTokenBalance, "ether"),
+      address: PUCK_TOKEN_ADDRESS
+    });
+  }
+  
+  // Get total staked balance
+  const totalStakedBalance = web3.utils.fromWei(Number(stakedCityTokenBalance) + Number(stakedPuckTokenBalance), "ether"),
+// Get total rewards earned
+const totalRewards = await contract.methods.getRewards(account).call();
 
-  // Display city token balances
-  const cityTokenList = document.getElementById("cityTokenList");
-  cityTokenList.innerHTML = "";
-  cityTokenBalances.forEach((cityTokenBalance) => {
-    const cityTokenItem = document.createElement("li");
-    cityTokenItem.classList.add("list-group-item");
-    const cityTokenImage = document.createElement("img");
-    cityTokenImage.src = `assets/${cityTokenBalance.image}`;
-    cityTokenImage.classList.add("city-token-image");
-    const cityTokenName = document.createElement("span");
-    cityTokenName.textContent = cityTokenBalance.name;
-    cityTokenName.classList.add("city-token-name");
-    const cityTokenBalanceElement = document.createElement("span");
-    cityTokenBalanceElement.textContent = `${cityTokenBalance.balance}`;
-    const cityTokenBalanceIcon = document.createElement("i");
-    cityTokenBalanceIcon.classList.add("fas", "fa-hockey-puck");
-    cityTokenBalanceElement.appendChild(cityTokenBalanceIcon);
-    cityTokenItem.appendChild(cityTokenImage);
-    cityTokenItem.appendChild(cityTokenName);
-    cityTokenItem.appendChild(cityTokenBalanceElement);
-    cityTokenList.appendChild(cityTokenItem);
-  });
+// Get available rewards balance
+const availableRewardsBalance = await contract.methods.getAvailableRewards(account).call();
 
-  // Display staked city token balances
-  const stakedCityTokenList = document.getElementById("stakedCityTokenList");
-  stakedCityTokenList.innerHTML = "";
-  stakedBalances.forEach((stakedBalance) => {
-    const stakedCityTokenItem = document.createElement("li");
-    stakedCityTokenItem.classList.add("list-group-item");
-    const stakedCityTokenImage = document.createElement("img");
-    stakedCityTokenImage.src = `assets/${stakedBalance.image}`;
-    stakedCityTokenImage.classList.add("city-token-image");
-    const stakedCityTokenName = document.createElement("span");
-    stakedCityTokenName.textContent = stakedBalance.name;
-    stakedCityTokenName.classList.add("city-token-name");
+// Display city token balance
+const cityTokenBalanceElement = document.getElementById("cityTokenBalance");
+cityTokenBalanceElement.textContent = ${cityTokenBalanceFormatted} ${cityTokenSymbol};
+
+// Display puck token balance
+const puckTokenBalanceElement = document.getElementById("puckTokenBalance");
+puckTokenBalanceElement.textContent = ${puckTokenBalanceFormatted} ${puckTokenSymbol};
+
+// Display staked city token balances
+const stakedCityTokenList = document.getElementById("stakedCityTokenList");
+stakedCityTokenList.innerHTML = "";
+stakedBalances.forEach((stakedBalance) => {
+const stakedCityTokenItem = document.createElement("li");
+stakedCityTokenItem.classList.add("list-group-item");
+const stakedCityTokenImage = document.createElement("img");
+stakedCityTokenImage.src = stakedBalance.image;
+stakedCityTokenImage.classList.add("city-token-image");
+const stakedCityTokenName = document.createElement("span");
+stakedCityTokenName.textContent = stakedBalance.name;
+stakedCityTokenName.classList.add("city-token-name");
 const stakedCityTokenBalance = document.createElement("span");
-    stakedCityTokenBalance.textContent = `${stakedBalance.balance.toFixed(2)} ${stakedBalance.symbol}`;
-    stakedCityTokenItem.appendChild(stakedCityTokenImage);
-    stakedCityTokenItem.appendChild(stakedCityTokenName);
-    stakedCityTokenItem.appendChild(stakedCityTokenBalance);
-    const stakedCityTokenProgressBar = document.createElement("div");
-    stakedCityTokenProgressBar.classList.add("progress");
-    const stakedCityTokenProgressBarFill = document.createElement("div");
-    stakedCityTokenProgressBarFill.classList.add("progress-bar");
-    stakedCityTokenProgressBarFill.classList.add(`bg-${stakedBalance.color}`);
-    stakedCityTokenProgressBarFill.setAttribute("role", "progressbar");
-    stakedCityTokenProgressBarFill.style.width = `${stakedBalance.percentage}%`;
-    stakedCityTokenProgressBarFill.setAttribute("aria-valuenow", `${stakedBalance.percentage}`);
-    stakedCityTokenProgressBarFill.setAttribute("aria-valuemin", "0");
-    stakedCityTokenProgressBarFill.setAttribute("aria-valuemax", "100");
-    stakedCityTokenProgressBarFill.textContent = `${stakedBalance.percentage.toFixed(2)}%`;
-    stakedCityTokenProgressBar.appendChild(stakedCityTokenProgressBarFill);
-    stakedCityTokenItem.appendChild(stakedCityTokenProgressBar);
-    stakedCityTokenList.appendChild(stakedCityTokenItem);
-  });
-}
-
-// Stake city tokens
-async function stakeCityTokens(event) {
-  event.preventDefault();
-  const city = document.getElementById("stakeCitySelect").value;
-  const amount = document.getElementById("stakeAmount").value;
-
-  if (!city) {
-    showErrorMessage("Please select a city");
-    return;
-  }
-
-  if (amount <= 0) {
-    showErrorMessage("Please enter a valid amount to stake");
-    return;
-  }
-
-  const contract = await loadContract();
-  const balance = await contract.methods.getCityTokenBalance(await loadAccount(), city).call();
-  if (balance < amount) {
-    showErrorMessage(`Insufficient ${city} tokens balance`);
-    return;
-  }
-
-  try {
-    await contract.methods.stakeCityTokens(city, web3.utils.toWei(amount)).send({
-      from: await loadAccount(),
-      gas: 100000,
-    });
-    showSuccessMessage(`Successfully staked ${amount} ${city} tokens`);
-  } catch (error) {
-    showErrorMessage(`Error staking ${city} tokens: ${error.message}`);
-  }
-  displayCityTokenBalances();
-  displayStakedCityTokenBalances();
-}
-
-// Unstake city tokens
-async function unstakeCityTokens(event) {
-  event.preventDefault();
-  const city = document.getElementById("unstakeCitySelect").value;
-  const amount = document.getElementById("unstakeAmount").value;
-
-  if (!city) {
-    showErrorMessage("Please select a city");
-    return;
-  }
-
-  if (amount <= 0) {
-    showErrorMessage("Please enter a valid amount to unstake");
-    return;
-  }
-
-  const contract = await loadContract();
-  const balance = await contract.methods.getUserStakedBalance(await loadAccount(), city).call();
-  if (balance < amount) {
-    showErrorMessage(`Insufficient staked ${city} tokens balance`);
-    return;
-  }
-
-  try {
-    await contract.methods.unstakeCityTokens(city, web3.utils.toWei(amount)).send({
-      from: await loadAccount(),
-      gas: 100000,
-    });
-    showSuccessMessage(`Successfully unstaked ${amount} ${city} tokens`);
-  } catch (error) {
-    showErrorMessage(`Error unstaking ${city} tokens: ${error.message}`);
-}
-
-// Claim rewards
-async function claimRewards() {
-const city = document.getElementById("claimCitySelect").value;
-
-if (!city) {
-showErrorMessage("Please select a city");
-return;
-}
-
-const contract = await loadContract();
-const balance = await contract.methods.getUserStakedBalance(await loadAccount(), city).call();
-
-if (balance <= 0) {
-showErrorMessage(No staked balance for ${city});
-return;
-}
-
-try {
-await contract.methods.claimReward(city).send({
-from: await loadAccount(),
-gas: 100000,
+stakedCityTokenBalance.textContent = ${stakedBalance.balance.toFixed(2)} ${stakedBalance.symbol};
+const stakedCityTokenBalanceIcon = document.createElement("i");
+stakedCityTokenBalanceIcon.classList.add("fas", "fa-hockey-puck");
+stakedCityTokenBalance.appendChild(stakedCityTokenBalanceIcon);
+stakedCityTokenItem.appendChild(stakedCityTokenImage);
+stakedCityTokenItem.appendChild(stakedCityTokenName);
+stakedCityTokenItem.appendChild(stakedCityTokenBalance);
+stakedCityTokenList.appendChild(stakedCityTokenItem);
 });
-showSuccessMessage(Successfully claimed reward for ${city});
-} catch (error) {
-showErrorMessage(Error claiming reward: ${error.message});
-}
-displayCityTokenBalances();
-displayStakedCityTokenBalances();
+
+// Display total staked city token balance
+const totalStakedCityTokenBalance = document.getElementById("totalStakedCityTokenBalance");
+totalStakedCityTokenBalance.textContent = ${totalStakedBalance.toFixed(2)} CITY;
+
+// Display total rewards earned
+const totalRewardsEarned = document.getElementById("totalRewardsEarned");
+totalRewardsEarned.textContent = ${totalRewards.toFixed(2)} PUCK;
+
+// Display available rewards
+const availableRewards = document.getElementById("availableRewards");
+availableRewards.textContent = ${availableRewardsBalance.toFixed(2)} PUCK;
 }
 
-// Event listeners
-document.getElementById("connectButton").addEventListener("click", connectWallet);
-document.getElementById("disconnectButton").addEventListener("click", disconnectWallet);
-document.getElementById("stakeCityForm").addEventListener("submit", stakeCityTokens);
-document.getElementById("unstakeCityForm").addEventListener("submit", unstakeCityTokens);
-document.getElementById("claimCityForm").addEventListener("submit", claimRewards);
+// Load contract
+async function loadContract() {
+const response = await fetch(assets/PuckCityV6.json);
+const data = await response.json();
+const networkId = await web3.eth.net.getId();
+const baseURI = "https://example.com/token/";
+const tokenAddress = "<your-token-address>";
+const treasuryAddress = "<your-treasury-address>";
+const aggregatorAddress = "<your-aggregator-address>";
+const contract = new web3.eth.Contract(data.abi, CONTRACT_ADDRESS);
+return contract;
+}
 
-// Initial display of city token balances
-displayCityTokenBalances();
-displayStakedCityTokenBalances();
+// Load account
+async function loadAccount() {
+const accounts = await web3.eth.getAccounts();
+return accounts[0];
+}
+
+// Refresh data on page load
+window.addEventListener("load", async () => {
+await refreshData();
+});
+
+// Display staking form
+const stakingForm = document.getElementById("stakingForm");
+stakingForm.addEventListener("submit", async (event) => {
+event.preventDefault();
+const amount = event.target.elements[0].value;
+const token = event.target.elements
 
 
