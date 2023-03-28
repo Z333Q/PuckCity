@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>PuckCityV6</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <nav>
+        <a href="#" class="logo"><img src="assets/puckcity-logo.png" alt="PuckCity logo" /></a>
+        <ul>
+          <li><a href="#">Home</a></li>
+          <li><a href="#">FAQ</a></li>
+          <li><a href="#">Tutorial</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+        <div id="walletContainer">
+          <span id="walletAddress"></span>
+          <button id="connectButton">Connect Wallet</button>
+          <button id="disconnectButton">Disconnect</button>
+        </div>
+      </nav>
+    </header>
+    <main>
+      <section id="teamTokenSection">
+        <h2>Team Tokens</h2>
+        <div class="card">
+          <div class="card-header">
+            <h3>Select a team to stake:</h3>
+<section id="teamTokenSection">
+        <h2>Team Tokens</h2>
+        <div class="card">
+          <div class="card-header">
+            <h3>Select a city to stake:</h3>
+            <select id="stakeTeamSelect">
+              <option value="">Select city</option>
+              <option value="ANA">Anaheim</option>
+              <option value="ARI">Arizona</option>
+              <option value="BOS">Boston</option>
+              <option value="BUF">Buffalo</option>
+              <option value="CGY">Calgary</option>
+              <option value="CAR">Carolina</option>
+              <option value="CHI">Chicago</option>
+              <option value="COL">Colorado</option>
+              <option value="CBJ">Columbus</option>
+              <option value="DAL">Dallas</option>
+              <option value="DET">Detroit</option>
+              <option value="EDM">Edmonton</option>
+              <option value="FLA">Florida</option>
+              <option value="LAK">Los Angeles</option>
+              <option value="MIN">Minnesota</option>
+              <option value="MTL">Montreal</option>
+              <option value="NSH">Nashville</option>
+              <option value="NJD">New Jersey</option>
+              <option value="NYI">New York (Islanders)</option>
+              <option value="NYR">New York (Rangers)</option>
+              <option value="OTT">Ottawa</option>
+              <option value="PHI">Philadelphia</option>
+              <option value="PIT">Pittsburgh</option>
+              <option value="SJS">San Jose</option>
+              <option value="STL">St. Louis</option>
+              <option value="TBL">Tampa Bay</option>
+              <option value="TOR">Toronto</option>
+              <option value="VAN">Vancouver</option>
+              <option value="VGK">Vegas</option>
+              <option value="WSH">Washington</option>
+              <option value="WPG">Winnipeg</option>
+            </select>
+          </div>
+          <div class="card-body">
+            <h4>Balance:</h4>
+            <ul id="teamTokenList" class="list-group"></ul>
+          </div>
+          <div class="card-footer">
+            <form onsubmit="event.preventDefault(); stakeTeamTokens()">
+              <div class="form-group">
+                <label for="stakeAmount">Amount:</label>
+                <div class="input-group">
+                  <input type="number" class="form-control" id="stakeAmount" min="1" value="1" required>
+                  <div class="input-group-append">
+                    <span class="input-group-text" id="stakeAmountAddon">
+                      <i class="fas fa-hockey-puck"></i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary">Stake</button>
+            </form>
+            <form onsubmit="event.preventDefault(); unstakeTeamTokens()">
+              <div class="form-group">
+                <label for="unstakeAmount">Amount:</label>
+                <div class="input-group">
+                  <input type="number" class="form-control" id="unstakeAmount" min="1" value="1" required>
+                  <div class="input-group-append">
+                    <span class="input-group-text" id="unstakeAmountAddon">
+                      <i class="fas fa-hockey-puck"></i>
+</span>
+</div>
+</div>
+</div>
+<button type="submit" class="btn btn-danger">Unstake</button>
+</form>
+<form onsubmit="event.preventDefault(); claimRewards()">
+<div class="form-group">
+<label for="claimTeamSelect">Team:</label>
+<select id="claimTeamSelect" class="form-control" required>
+<option value="">Select team</option>
+<option value="ANA">Anaheim</option>
+<option value="ARI">Arizona</option>
+<option value="BOS">Boston</option>
+<option value="BUF">Buffalo</option>
+<option value="CGY">Calgary</option>
+<option value="CAR">Carolina</option>
+<option value="CHI">Chicago</option>
+<option value="COL">Colorado</option>
+<option value="CBJ">Columbus</option>
+<option value="DAL">Dallas</option>
+<option value="DET">Detroit</option>
+<option value="EDM">Edmonton</option>
+<option value="FLA">Florida</option>
+<option value="LAK">Los Angeles</option>
+<option value="MIN">Minnesota</option>
+<option value="MTL">Montreal</option>
+<option value="NSH">Nashville</option>
+<option value="NJD">New Jersey</option>
+<option value="NYI">NY Islanders</option>
+<option value="NYR">NY Rangers</option>
+<option value="OTT">Ottawa</option>
+<option value="PHI">Philadelphia</option>
+<option value="PIT">Pittsburgh</option>
+<option value="SJS">San Jose</option>
+<option value="STL">St. Louis</option>
+<option value="TBL">Tampa Bay</option>
+<option value="TOR">Toronto</option>
+<option value="VAN">Vancouver</option>
+<option value="VGK">Vegas</option>
+<option value="WSH">Washington</option>
+<option value="WPG">Winnipeg</option>
+</select>
+</div>
+<button type="submit" class="btn btn-success">Claim Rewards</button>
+</form>
+</div>
+</div>
+</section>
+             <section id="teamTokenBalanceSection">
+    <h2>Team Token Balances</h2>
+    <div class="card">
+      <ul class="list-group list-group-flush" id="teamTokenList">
+        <!-- Team token balances will be dynamically added here -->
+      </ul>
+    </div>
+  </section>
+
+  <section id="stakedTeamTokenSection">
+    <h2>Staked Team Tokens</h2>
+    <div class="card">
+      <ul class="list-group list-group-flush" id="stakedTeamTokenList">
+        <!-- Staked team token balances will be dynamically added here -->
+      </ul>
+    </div>
+  </section>
+</div>
+
+<div class="modal fade" id="alertModal" tabindex="-1" role="dialog" aria-labelledby="alertModalLabel"
+  aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="alertModalLabel">Alert</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="alert"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+  integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+  crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@widgetbot/crate@3.1.11/dist/crate.esm.js"></script>
+<script src="./assets/js/web3.min.js"></script>
+<script src="./assets/js/app.js"></script>
+</body>
+</html>
+
