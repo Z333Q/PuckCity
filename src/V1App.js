@@ -162,7 +162,8 @@ availableRewardsElement.textContent = ${availableRewardsBalance.toFixed(2)} PUCK
 
 // Display team token balances
 const teamTokenList = document.getElementById("teamTokenList");
-teamTokenList.innerHTML = "";
+cityTokenBalanceElement.textContent = `${cityTokenBalanceFormatted} ${cityTokenSymbol}`;
+
 teamBalances.forEach((teamBalance) => {
 const teamTokenItem = document.createElement("li");
 teamTokenItem.classList.add("list-group-item");
