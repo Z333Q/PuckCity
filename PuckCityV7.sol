@@ -151,14 +151,18 @@ function unstake(string memory team) public {
     uint256 amount = stakedBalances[msg.sender][team];
     uint256 tokenId = teamTokenIds[team];
 
+    uint256 fee = amount.div(100); // Calculate the 1% fee
+    uint256 netAmount = amount.sub(fee); // Subtract the fee from the amount
     stakedBalances[msg.sender][team] = 0;
     teams[team].totalStaked = teams[team].totalStaked.sub(amount);
 
-    _token.transfer(msg.sender, amount);
-    _mint(msg.sender, tokenId, amount, "");
+    teams[team].treasuryBalance = teams[team].treasuryBalance.add(fee); // Add the fee to the treasury balance
+    _token.transfer(msg.sender, netAmount);
+    _mint(msg.sender, tokenId, netAmount, "");
 
-    emit Unstaked(msg.sender, team, amount);
+    emit Unstaked(msg.sender, team, netAmount);
 }
+
 
 function getStakedBalance(address user, string memory team) public view returns (uint256) {
     return stakedBalances[user][team];
