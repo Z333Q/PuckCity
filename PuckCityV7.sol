@@ -180,5 +180,3 @@ event RewardClaimed(address indexed user, string team, uint256 amount);
 event RewardsDistributed(string winningTeam, string losingTeam, uint256 winningReward, uint256 losingPenalty);
 }
 
-
-
