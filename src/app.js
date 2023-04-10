@@ -112,7 +112,7 @@ window.alert("Non-Ethereum browser detected. You should consider trying MetaMask
 
 // Load Contract
 async function loadContract() {
-const response = await fetch("assets/PuckCityV7.json");
+const response = await fetch("assets/PuckCityV8.json");
 const data = await response.json();
 const networkType = await web3.eth.net.getNetworkType();
 const networkId = await web3.eth.net.getId();
