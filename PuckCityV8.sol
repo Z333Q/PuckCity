@@ -278,8 +278,8 @@ Team storage losingTeamData = teams[losingTeam];
 require(winningTeamData.totalStaked > 0, "Winning team has no staked amount");
 require(losingTeamData.totalStaked > 0, "Losing team has no staked amount");
 
-uint256 winningReward = losingTeamData.totalStaked.mul(5).div(100); // 5% of the losing team's staked amount
-uint256 losingPenalty = losingTeamData.totalStaked.mul(5).div(100); // 5% of the losing team's staked amount
+uint256 winningReward = losingTeamData.totalStaked.mul(.5).div(100); // .5% of the losing team's staked amount
+uint256 losingPenalty = losingTeamData.totalStaked.mul(.5).div(100); // .5% of the losing team's staked amount
 
 winningTeamData.totalStaked = winningTeamData.totalStaked.add(winningReward);
 losingTeamData.totalStaked = losingTeamData.totalStaked.sub(losingPenalty);
