@@ -1,34 +1,34 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "https://github.com/Immutable-X/imx-contracts/blob/master/contracts/ERC20.sol";
 import "https://github.com/maticnetwork/pos-portal/contracts/root/RootChainManager.sol";
-import "https://github.com/kaleido-io/ethconnect/blob/main/contracts/IOracle.sol";
-
-// Constants for better readability
-uint256 constant TEAM_COUNT = 32;
-uint256 constant TOKENS_PER_TEAM = 1000;
-uint256 constant PERCENT_MULTIPLIER = 1000; // For 0.5% transaction fee
-uint256 constant MAX_SCORE = 100;
-uint256 constant BASE = 10**8;
-uint256 constant ETHER_IN_WEI = 1 ether;
 
 contract PuckCity is ERC20, ERC1155, Ownable, Pausable {
+    uint256 private constant TEAM_COUNT = 32;
+    uint256 private constant TOKENS_PER_TEAM = 1000;
+    uint256 private constant PERCENT_MULTIPLIER = 1000; // For 0.5% transaction fee
+    uint256 private constant MAX_SCORE = 100;
+    uint256 private constant BASE = 10**8;
+    uint256 private constant ETHER_IN_WEI = 1 ether;
+
     uint256 public transactionFee = 5; // 0.5%
     uint256 public globalTreasury;
+
     mapping(uint256 => uint256) public reserves;
     mapping(uint256 => address) public teamTreasury;
     mapping(uint256 => mapping(uint256 => GameResult)) public gameResults;
     uint256 public lastResultUpdateBlock;
-    AggregatorV3Interface internal priceFeed;
-    IERC20 internal immutableX;
-    RootChainManager internal rootChainManager;
-    IOracle internal oracle;
+
+    AggregatorV3Interface private priceFeed;
+    IERC20 private immutableX;
+    RootChainManager private rootChainManager;
 
     struct GameResult {
         uint256 homeScore;
@@ -36,13 +36,16 @@ contract PuckCity is ERC20, ERC1155, Ownable, Pausable {
         bool resultSubmitted;
     }
 
+    bytes32 private jobId;
+
     constructor(
-        address[] memory _teamTreasuryAddresses, 
-        string memory _uri, 
-        address _priceFeedAddress, 
-        address _immutableXAddress, 
-        address _rootChainManagerAddress, 
-        address _oracleAddress
+        address[] memory _teamTreasuryAddresses,
+        string memory _uri,
+        address _priceFeedAddress,
+        address _immutableXAddress,
+        address _rootChainManagerAddress,
+        bytes32 _jobId,
+        uint256 _oraclePaymentAmount
     ) ERC20("Puck City", "PUCK") ERC1155(_uri) {
         require(_teamTreasuryAddresses.length == TEAM_COUNT, "Invalid team treasury addresses length");
         for (uint256 i = 0; i < TEAM_COUNT; i++) {
@@ -51,17 +54,18 @@ contract PuckCity is ERC20, ERC1155, Ownable, Pausable {
         priceFeed = AggregatorV3Interface(_priceFeedAddress);
         immutableX = IERC20(_immutableXAddress);
         rootChainManager = RootChainManager(_rootChainManagerAddress);
-        oracle = IOracle(_oracleAddress);
+        jobId = _jobId;
+        oraclePaymentAmount = _oraclePaymentAmount;
     }
 
     function getCurrentPrice() public view returns (uint256) {
         uint256 totalSupply = totalSupply();
-        uint256 reserveBalance  = getReserveBalance(totalSupply);
+        uint256 reserveBalance = getReserveBalance(totalSupply);
         return _calculatePrice(totalSupply + 1, reserveBalance);
     }
 
     function _calculatePrice(uint256 _supply, uint256 _reserveBalance) internal pure returns (uint256) {
-        return _reserveBalance * 1000000 / (_supply**2 - _supply + 1);
+        return (_reserveBalance * 1000000) / (_supply**2 - _supply + 1);
     }
 
     function purchaseToken(uint256 _amount, uint256 _teamId) public payable whenNotPaused {
@@ -79,7 +83,8 @@ contract PuckCity is ERC20, ERC1155, Ownable, Pausable {
 
         // Transfer 0.5% of the payment to the contract owner
         uint256 transactionFeeAmount = (totalPrice * transactionFee) / PERCENT_MULTIPLIER;
-        payable(owner()).transfer(transactionFeeAmount);
+        (bool transferToOwner,) = payable(owner()).call{value: transactionFeeAmount}();
+        require(transferToOwner, "Transfer to contract owner failed");
 
         // Transfer remaining payment to global treasury
         uint256 remainingAmount = totalPrice - transactionFeeAmount;
@@ -94,22 +99,48 @@ contract PuckCity is ERC20, ERC1155, Ownable, Pausable {
         require(balance > 0, "Balance is zero");
         uint256 reserveBalance = reserves[_teamId * TOKENS_PER_TEAM + balance - 1];
         uint256 currentPrice = getCurrentPrice();
-        uint256 value = reserveBalance * balance * currentPrice / (TOKENS_PER_TEAM * ETHER_IN_WEI);
+        uint256 value = (reserveBalance * balance * currentPrice) / (TOKENS_PER_TEAM * ETHER_IN_WEI);
         reserves[_teamId * TOKENS_PER_TEAM + balance - 1] = 0;
         _burn(msg.sender, _teamId + 1, balance);
 
-        immutableX.transferFrom(msg.sender, address(this), value);
+        bool transferFromSuccess = immutableX.transferFrom(msg.sender, address(this), value);
+        require(transferFromSuccess, "Transfer from user failed");
 
         globalTreasury += value;
     }
 
     function getReserveBalance(uint256 _totalSupply) public view returns (uint256) {
         uint256 balance = address(this).balance - globalTreasury;
-        return balance + (priceFeed.latestAnswer() * _totalSupply * ETHER_IN_WEI) / BASE;
+        return balance + ((priceFeed.latestAnswer() * _totalSupply * ETHER_IN_WEI) / BASE);
     }
 
-    function updateResult(uint256 _teamId, uint256 _round, uint256 _homeScore, uint256 _awayScore) public {
-        require(msg.sender == address(oracle), "Caller is not the oracle");
+    function updateResults(uint256 _teamId, uint256 _round) public returns (bytes32) {
+        Chainlink.Request memory request = buildChainlinkRequest(jobId, address(this), this.fulfill.selector);
+        request.add("get", "https://api.sportsdata.io/v3/nhl/scores/json/TeamGameStats");
+        string[] memory path = new string[](5);
+        path[0] = "TeamGameStats";
+        path[1] = StringConverter.toString(_teamId);
+        path[2] = "Round";
+        path[3] = StringConverter.toString(_round);
+        path[4] = "Score";
+        request.addStringArray("path", path);
+        return sendChainlinkRequestTo(oracle, request, oraclePaymentAmount);
+    }
+
+    function fulfill(bytes32 _requestId, uint256 _score) public recordChainlinkFulfillment(_requestId) {
+        uint256 _teamId = requestIdToTeamId[_requestId];
+        uint256 _round = requestIdToRound[_requestId];
+
+        // Store the result
+        GameResult memory result = GameResult(_score, true);
+        gameResults[_teamId][_round] = result;
+        lastResultUpdateBlock = block.number;
+
+        // Then redistribute funds based on result
+        redistributeFunds(_teamId, _round);
+    }
+
+    function updateResult(uint256 _teamId, uint256 _round, uint256 _homeScore, uint256 _awayScore) public onlyOracle {
         require(_teamId < TEAM_COUNT, "Invalid team ID");
         require(_round > 0, "Invalid round number");
         require(_homeScore <= MAX_SCORE, "Invalid home score");
@@ -210,4 +241,3 @@ contract PuckCity is ERC20, ERC1155, Ownable, Pausable {
         require(success, "Withdrawal from global treasury failed");
     }
 }
-
