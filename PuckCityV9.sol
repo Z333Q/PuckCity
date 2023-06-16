@@ -7,10 +7,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "https://github.com/Immutable-X/imx-contracts/blob/master/contracts/ERC20.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "https://github.com/maticnetwork/pos-portal/contracts/root/RootChainManager.sol";
 
-contract PuckCity is ERC20, ERC1155, Ownable, Pausable {
+contract PuckCity is ERC20, ERC1155, Ownable, Pausable, ChainlinkClient {
     uint256 private constant TEAM_COUNT = 32;
     uint256 private constant TOKENS_PER_TEAM = 1000;
     uint256 private constant PERCENT_MULTIPLIER = 1000; // For 0.5% transaction fee
@@ -20,23 +20,33 @@ contract PuckCity is ERC20, ERC1155, Ownable, Pausable {
 
     uint256 public transactionFee = 5; // 0.5%
     uint256 public globalTreasury;
+    uint256 private oraclePaymentAmount;
 
     mapping(uint256 => uint256) public reserves;
     mapping(uint256 => address) public teamTreasury;
     mapping(uint256 => mapping(uint256 => GameResult)) public gameResults;
+    mapping(bytes32 => uint256) private requestIdToTeamId;
+    mapping(bytes32 => uint256) private requestIdToRound;
     uint256 public lastResultUpdateBlock;
 
     AggregatorV3Interface private priceFeed;
     IERC20 private immutableX;
     RootChainManager private rootChainManager;
+    address private oracle;
 
-    struct GameResult {
-        uint256 homeScore;
-        uint256 awayScore;
-        bool resultSubmitted;
-    }
+ struct GameResult {
+    uint256 homeScore;
+    uint256 awayScore;
+    bool resultSubmitted;
+    uint256 score;
+}
 
     bytes32 private jobId;
+
+    modifier onlyOracle() {
+        require(msg.sender == oracle, "Only oracle can call this function.");
+        _;
+    }
 
     constructor(
         address[] memory _teamTreasuryAddresses,
@@ -45,6 +55,7 @@ contract PuckCity is ERC20, ERC1155, Ownable, Pausable {
         address _immutableXAddress,
         address _rootChainManagerAddress,
         bytes32 _jobId,
+        address _oracleAddress,
         uint256 _oraclePaymentAmount
     ) ERC20("Puck City", "PUCK") ERC1155(_uri) {
         require(_teamTreasuryAddresses.length == TEAM_COUNT, "Invalid team treasury addresses length");
@@ -56,6 +67,7 @@ contract PuckCity is ERC20, ERC1155, Ownable, Pausable {
         rootChainManager = RootChainManager(_rootChainManagerAddress);
         jobId = _jobId;
         oraclePaymentAmount = _oraclePaymentAmount;
+        oracle = _oracleAddress;
     }
 
     function getCurrentPrice() public view returns (uint256) {
@@ -119,18 +131,25 @@ contract PuckCity is ERC20, ERC1155, Ownable, Pausable {
         request.add("get", "https://api.sportsdata.io/v3/nhl/scores/json/TeamGameStats");
         string[] memory path = new string[](5);
         path[0] = "TeamGameStats";
-        path[1] = StringConverter.toString(_teamId);
+        path[1] = _toString(_teamId);
         path[2] = "Round";
-        path[3] = StringConverter.toString(_round);
+        path[3] = _toString(_round);
         path[4] = "Score";
         request.addStringArray("path", path);
-        return sendChainlinkRequestTo(oracle, request, oraclePaymentAmount);
+        bytes32 requestId = sendChainlinkRequestTo(oracle, request, oraclePaymentAmount);
+
+        requestIdToTeamId[requestId] = _teamId;
+        requestIdToRound[requestId] = _round;
+
+        return requestId;
     }
 
     function fulfill(bytes32 _requestId, uint256 _score) public recordChainlinkFulfillment(_requestId) {
         uint256 _teamId = requestIdToTeamId[_requestId];
         uint256 _round = requestIdToRound[_requestId];
-
+        delete requestIdToTeamId[_requestId];
+        delete requestIdToRound[_requestId];
+        
         // Store the result
         GameResult memory result = GameResult(_score, true);
         gameResults[_teamId][_round] = result;
@@ -239,5 +258,26 @@ contract PuckCity is ERC20, ERC1155, Ownable, Pausable {
         require(_amount <= immutableX.balanceOf(address(this)), "Insufficient balance in global treasury");
         (bool success,) = owner().call{value: _amount}("");
         require(success, "Withdrawal from global treasury failed");
+    }
+
+// This is a utility function to convert uint to string.
+    function _toString(uint256 value) internal pure returns(string memory) {
+      // Convert a uint value to its decimal string representation.
+      if (value == 0) {
+        return "0";
+      }
+      uint256 temp = value;
+      uint256 digits;
+      while (temp != 0) {
+        digits++;
+        temp /= 10;
+      }
+      bytes memory buffer = new bytes(digits);
+      while (value != 0) {
+        digits -= 1;
+        buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+        value /= 10;
+      }
+      return string(buffer);
     }
 }
